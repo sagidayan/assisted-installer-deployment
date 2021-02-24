@@ -73,7 +73,7 @@ def create_jira_ticket(jclient, existing_tickets, failure_id, cluster_md):
         logger.debug("issue found: %s", summary)
         return None
 
-    url = "{}/files/{}".format(LOGS_COLLECTOR, failure_id)
+    url = "{}/{}".format(LOGS_COLLECTOR, failure_id)
     new_issue = jclient.create_issue(project="MGMT",
                                      summary=summary,
                                      versions=[{'name': 'OpenShift {}'.format(cluster_md['openshift_version'])}],
@@ -103,7 +103,7 @@ def main(arg):
     jclient = get_jira_client(username, password)
 
     try:
-        res = requests.get("{}/files/".format(LOGS_COLLECTOR))
+        res = requests.get("{}/".format(LOGS_COLLECTOR))
     except:
         logger.exception("Error getting list of failed clusters")
         sys.exit(1)
@@ -118,14 +118,14 @@ def main(arg):
         if not arg.all and ats.days_ago(date) > DEFAULT_DAYS_TO_HANDLE:
             continue
 
-        res = requests.get("{}/files/{}/metdata.json".format(LOGS_COLLECTOR, failure['name']))
+        res = requests.get("{}/{}/metdata.json".format(LOGS_COLLECTOR, failure['name']))
         res.raise_for_status()
         cluster = res.json()['cluster']
 
         if cluster['status'] == "error":
             new_issue = create_jira_ticket(jclient, existing_tickets, failure['name'], cluster)
             if new_issue is not None:
-                logs_url = "{}/files/{}".format(LOGS_COLLECTOR, failure['name'])
+                logs_url = "{}/{}".format(LOGS_COLLECTOR, failure['name'])
                 ats.add_signatures(jclient, logs_url, new_issue.key)
 
 
