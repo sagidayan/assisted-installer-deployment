@@ -2,45 +2,55 @@ pipeline {
     agent { label 'centos_worker' }
     environment {
         SLACK_TOKEN = credentials('slack-token')
+        QUAY_IO_CREDS = credentials('ocpmetal_cred')
     }
     options {
       timeout(time: 1, unit: 'HOURS') 
     }
 
     stages {
+
+        stage('Init'){
+            steps {
+                // Login to quay.io
+                sh "podman login quay.io -u ${QUAY_IO_CREDS_USR} -p ${QUAY_IO_CREDS_PSW}"
+            }
+        }
+
         stage('Update master and snapshot branch') {
             steps {
                 sh '''git clean -f'''
                 sh '''skipper run python tools/update_assisted_installer_yaml.py --full'''
-                withCredentials([usernamePassword(credentialsId: '9fa5c056-6227-4f70-97df-6aa31854c20a', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]){
-                    sh('''
-                        if [ "$(git status --porcelain)" ];
-                        then
-                            commitDate="date +%d-%m-%Y-%H-%M"
-                            git config --local credential.helper "!f() { echo username=\\$GIT_USERNAME; echo password=\\$GIT_PASSWORD; }; f"
-                            git commit -am "Daily commit" -am "`$commitDate`"
-                            git push origin HEAD:master
-
-                            git tag nightly -f
-                            git push origin nightly -f
-                        else
-                            echo "Noting to commit"
-                        fi
-
-
-                    ''')
-                }
+                sh '''python3 tools/check_ai_images.py'''
+                //withCredentials([usernamePassword(credentialsId: '9fa5c056-6227-4f70-97df-6aa31854c20a', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]){
+                //    sh('''
+                //        if [ "$(git status --porcelain)" ];
+                //        then
+                //            commitDate="date +%d-%m-%Y-%H-%M"
+                //            git config --local credential.helper "!f() { echo username=\\$GIT_USERNAME; echo password=\\$GIT_PASSWORD; }; f"
+                //            git commit -am "Daily commit" -am "`$commitDate`"
+                //            git push origin HEAD:master
+//
+                //            git tag nightly -f
+                //            git push origin nightly -f
+                //        else
+                //            echo "Noting to commit"
+                //        fi
+//
+//
+                //    ''')
+                //}
             }
         }
     }
 
-    post {
-        failure {
-            script {
-                def data = [text: "Daily release fail, see: ${BUILD_URL}"]
-                writeJSON(file: 'data.txt', json: data, pretty: 4)
-            }
-            sh '''curl -X POST -H 'Content-type: application/json' --data-binary "@data.txt"  https://hooks.slack.com/services/$SLACK_TOKEN'''
-        }
-    }
+    //post {
+    //    failure {
+    //        script {
+    //            def data = [text: "Daily release fail, see: ${BUILD_URL}"]
+    //            writeJSON(file: 'data.txt', json: data, pretty: 4)
+    //        }
+    //        sh '''curl -X POST -H 'Content-type: application/json' --data-binary "@data.txt"  https://hooks.slack.com/services/$SLACK_TOKEN'''
+    //    }
+    //}
 }
