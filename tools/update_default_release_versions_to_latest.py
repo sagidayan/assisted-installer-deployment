@@ -445,7 +445,7 @@ def main(args):
         clone_assisted_service(user, password)
 
         with open(os.path.join(ASSISTED_SERVICE_CLONE_DIR, DEFAULT_VERSIONS_FILES), 'w') as outfile:
-            json.dump(updated_version_json, outfile, indent=8)
+            json.dump(updated_version_json, outfile, indent=4)
         verify_latest_config()
 
         if dry_run:
