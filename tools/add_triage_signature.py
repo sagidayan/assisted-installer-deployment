@@ -1029,6 +1029,43 @@ class AgentStepFailureSignature(Signature):
         if len(report) != 0:
             self._update_triaging_ticket(issue_key, report, should_update=should_update)
 
+class CustomManifestUsageSignature(Signature):
+    def __init__(self, jira_client):
+        super().__init__(jira_client, comment_identifying_string="h1. User Cutstom Manifests")
+   
+    def _update_ticket(self, url, issue_key, should_update=False):
+        url = self._logs_url_to_api(url)
+        md = get_metadata_json(url)
+        cluster = md['cluster']
+        cluster_id = cluster['id']
+
+        feature_usage_field = cluster.get('feature_usage')
+        if not feature_usage_field:
+            # No custom manifests used - no need for signature
+            return
+
+        feature_usage = json.loads(feature_usage_field)
+        logger.info(f'feature_usage Keys {feature_usage.keys()}')
+        custom_manifest_usage = feature_usage.get('Custom manifest', False)
+        logger.info(f'custom manifests= {custom_manifest_usage}')
+        if not custom_manifest_usage:
+            # No custom manifests used - no need for signature
+            return
+        """
+        custom manifest is a dictionary the key is the manifest filename and the value is a usage model
+        usage model is a map [file name:string]:[folder path:string]
+        """
+        logger.warning("Custom manifest Used!")
+        logger.warning(type(custom_manifest_usage))
+        logger.warning(custom_manifest_usage)
+        manifests = []
+        for manifest_file in custom_manifest_usage.keys():
+            manifests.append(OrderedDict(
+                file_name=manifest_file,
+                path=custom_manifest_usage[manifest_file]
+            ))
+        report = self._generate_table_for_report(manifests)
+        self._update_triaging_ticket(issue_key, report, should_update=should_update)
 
 ############################
 # Common functionality
@@ -1039,7 +1076,7 @@ SIGNATURES = [AllInstallationAttemptsSignature, ApiInvalidCertificateSignature, 
               FailureDescription, ComponentsVersionSignature, HostsStatusSignature, HostsExtraDetailSignature,
               StorageDetailSignature, InstallationDiskFIOSignature, LibvirtRebootFlagSignature,
               MediaDisconnectionSignature, ConsoleTimeoutSignature, AgentStepFailureSignature,
-              CNIConfigurationError]
+              CNIConfigurationError, CustomManifestUsageSignature]
 
 
 def get_credentials_from_netrc(server, netrc_file=DEFAULT_NETRC_FILE):
